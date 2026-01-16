@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -73,6 +74,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -204,7 +206,11 @@
             text-decoration: underline;
         }
 
-        input[type="text"], input[type="url"], input[type="password"], input[type="number"], select {
+        input[type="text"],
+        input[type="url"],
+        input[type="password"],
+        input[type="number"],
+        select {
             width: 100%;
             padding: 12px 16px;
             border: 2px solid var(--border);
@@ -217,7 +223,11 @@
             box-sizing: border-box;
         }
 
-        input[type="text"]:hover, input[type="url"]:hover, input[type="password"]:hover, input[type="number"]:hover, select:hover {
+        input[type="text"]:hover,
+        input[type="url"]:hover,
+        input[type="password"]:hover,
+        input[type="number"]:hover,
+        select:hover {
             border-color: var(--border-hover);
         }
 
@@ -231,7 +241,8 @@
             box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
         }
 
-        input[type="radio"], input[type="checkbox"] {
+        input[type="radio"],
+        input[type="checkbox"] {
             accent-color: var(--primary);
             background-color: var(--card-bg);
         }
@@ -423,33 +434,35 @@
         .info-box a:hover {
             opacity: 0.9;
         }
-
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
             <h1>
-                <span>🇫🇷</span> 
-                <span class="title-text">Frenchio</span> 
+                <span>🇫🇷</span>
+                <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG & ABN via AllDebrid, TorBox, Debrid-Link ou qBittorrent</div>
+            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG & ABN via AllDebrid, TorBox, Debrid-Link ou
+                qBittorrent</div>
         </header>
-        
+
         <!-- Blurb personnalisé (caché par défaut) -->
         <div id="customBlurb" class="info-box" style="display: none;"></div>
-        
+
         <!-- Services Obligatoires -->
         <div class="card">
             <div class="card-header">
                 <h2>🔑 Services Requis</h2>
             </div>
-            
+
             <div class="form-group">
                 <label for="tmdbKey">Clé API TMDB (v3)</label>
                 <input type="text" id="tmdbKey" placeholder="Ex: a1b2c3d4...">
-                <span class="help-text">Nécessaire pour récupérer les titres corrects. <a href="https://www.themoviedb.org/settings/api" target="_blank">Obtenir ma clé</a></span>
+                <span class="help-text">Nécessaire pour récupérer les titres corrects. <a
+                        href="https://www.themoviedb.org/settings/api" target="_blank">Obtenir ma clé</a></span>
             </div>
 
             <div class="form-group">
@@ -477,19 +490,22 @@
             <div class="form-group" id="alldebridKeyGroup" style="display: none;">
                 <label for="alldebridKey">Clé API AllDebrid</label>
                 <input type="text" id="alldebridKey" placeholder="Ex: xYz123...">
-                <span class="help-text">Pour vérifier le cache et débrider les liens. <a href="https://alldebrid.com/apikeys" target="_blank">Obtenir ma clé</a></span>
+                <span class="help-text">Pour vérifier le cache et débrider les liens. <a
+                        href="https://alldebrid.com/apikeys" target="_blank">Obtenir ma clé</a></span>
             </div>
 
             <div class="form-group" id="torboxKeyGroup" style="display: none;">
                 <label for="torboxKey">Clé API TorBox</label>
                 <input type="text" id="torboxKey" placeholder="Ex: abc123...">
-                <span class="help-text">Alternative à AllDebrid. <a href="https://torbox.app/settings" target="_blank">Obtenir ma clé</a></span>
+                <span class="help-text">Alternative à AllDebrid. <a href="https://torbox.app/settings"
+                        target="_blank">Obtenir ma clé</a></span>
             </div>
 
             <div class="form-group" id="debridlinkKeyGroup" style="display: none;">
                 <label for="debridlinkKey">Clé API Debrid-Link</label>
                 <input type="text" id="debridlinkKey" placeholder="Ex: xyz789...">
-                <span class="help-text">Alternative à AllDebrid. <a href="https://debrid-link.com/webapp/apikey" target="_blank">Obtenir ma clé</a></span>
+                <span class="help-text">Alternative à AllDebrid. <a href="https://debrid-link.com/webapp/apikey"
+                        target="_blank">Obtenir ma clé</a></span>
             </div>
         </div>
 
@@ -502,12 +518,12 @@
                 Alternative à AllDebrid : téléchargez directement sur votre serveur/NAS.
                 Nécessite un serveur Web (Nginx/Apache) qui expose le dossier de téléchargement.
             </p>
-            
+
             <div class="form-group">
                 <label for="qbitUrl">URL qBittorrent (WebUI)</label>
                 <input type="url" id="qbitUrl" placeholder="http://192.168.1.50:8080">
             </div>
-            
+
             <div style="display: flex; gap: 15px;">
                 <div class="form-group" style="flex: 1;">
                     <label for="qbitUser">Utilisateur</label>
@@ -532,7 +548,8 @@
                 <h2>🌐 Trackers Publics / Semi-Privés</h2>
             </div>
             <p class="help-text" style="margin-bottom: 20px;">
-                <strong>YGG est activé par défaut</strong>, avec ou sans passkey. Sans passkey, seuls les torrents cachés sur vos services de debrid seront affichés.
+                <strong>YGG est activé par défaut</strong>, avec ou sans passkey. Sans passkey, seuls les torrents
+                cachés sur vos services de debrid seront affichés.
             </p>
 
             <div class="form-group">
@@ -545,7 +562,8 @@
                 <label for="yggPasskey">Passkey YGG <span class="badge">Optionnel</span></label>
                 <input type="text" id="yggPasskey" placeholder="32 caractères">
                 <span class="help-text">
-                    <strong>YGG est actif par défaut !</strong> Sans passkey, seuls les torrents cachés sur AllDebrid/TorBox/Debrid-Link seront affichés. 
+                    <strong>YGG est actif par défaut !</strong> Sans passkey, seuls les torrents cachés sur
+                    AllDebrid/TorBox/Debrid-Link seront affichés.
                     La passkey est nécessaire uniquement pour télécharger les fichiers .torrent avec qBittorrent.
                 </span>
             </div>
@@ -553,13 +571,21 @@
             <div class="form-group">
                 <label for="abnUsername">Identifiant ABN (Abnormal)</label>
                 <input type="text" id="abnUsername" placeholder="Nom d'utilisateur">
-                <span class="help-text">Votre nom d'utilisateur sur <a href="https://abn.lol/" target="_blank">ABN</a>. ⚠️ <strong>ABN ralentit les recherches</strong> car il nécessite plus de processing.</span>
+                <span class="help-text">Votre nom d'utilisateur sur <a href="https://abn.lol/" target="_blank">ABN</a>.
+                    ⚠️ <strong>ABN ralentit les recherches</strong> car il nécessite plus de processing.</span>
             </div>
 
             <div class="form-group">
                 <label for="abnPassword">Mot de passe ABN</label>
                 <input type="password" id="abnPassword" placeholder="Mot de passe">
                 <span class="help-text">Votre mot de passe ABN.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="lacalePasskey">Passkey La-Cale</label>
+                <input type="text" id="lacalePasskey" placeholder="Passkey">
+                <span class="help-text">Votre passkey <a href="https://la-cale.space"
+                        target="_blank">La-Cale</a>.</span>
             </div>
         </div>
 
@@ -572,7 +598,8 @@
             <div class="form-group">
                 <label for="maxSize">Taille maximale des torrents (Go)</label>
                 <input type="number" id="maxSize" placeholder="50" value="50" min="0" step="1">
-                <span class="help-text">Limite en Go (0 = aucune limite). Filtrer les torrents trop volumineux pour économiser de la bande passante.</span>
+                <span class="help-text">Limite en Go (0 = aucune limite). Filtrer les torrents trop volumineux pour
+                    économiser de la bande passante.</span>
             </div>
         </div>
 
@@ -581,19 +608,21 @@
             <div class="card-header">
                 <h2>🔒 Trackers UNIT3D (Privés) <span class="badge">Recommandé</span></h2>
             </div>
-            
+
             <p class="help-text" style="margin-bottom: 20px;">
-                Ajoutez ici vos trackers basés sur le moteur UNIT3D. UNIT3D est une plateforme de tracker BitTorrent utilisée par de nombreux trackers privés français.
-                L'URL doit être la racine du site (https://site.com). Le token API se génère dans vos paramètres de profil sur le site.
+                Ajoutez ici vos trackers basés sur le moteur UNIT3D. UNIT3D est une plateforme de tracker BitTorrent
+                utilisée par de nombreux trackers privés français.
+                L'URL doit être la racine du site (https://site.com). Le token API se génère dans vos paramètres de
+                profil sur le site.
             </p>
 
             <div id="trackersContainer">
                 <!-- Les trackers seront ajoutés ici -->
             </div>
-            
+
             <button type="button" class="btn btn-outline" onclick="addTracker()">+ Ajouter un Tracker UNIT3D</button>
         </div>
-        
+
         <div style="text-align: center; margin-top: 40px;">
             <button type="button" class="btn btn-primary" onclick="generateLink()">🚀 Générer et Installer</button>
         </div>
@@ -643,15 +672,15 @@
         // Gestion des radio buttons pour le service de débridage
         function updateDebridFields() {
             const selectedService = document.querySelector('input[name="debridService"]:checked').value;
-            
-            document.getElementById('alldebridKeyGroup').style.display = 
+
+            document.getElementById('alldebridKeyGroup').style.display =
                 selectedService === 'alldebrid' ? 'block' : 'none';
-            document.getElementById('torboxKeyGroup').style.display = 
+            document.getElementById('torboxKeyGroup').style.display =
                 selectedService === 'torbox' ? 'block' : 'none';
-            document.getElementById('debridlinkKeyGroup').style.display = 
+            document.getElementById('debridlinkKeyGroup').style.display =
                 selectedService === 'debridlink' ? 'block' : 'none';
         }
-        
+
         document.querySelectorAll('input[name="debridService"]').forEach(radio => {
             radio.addEventListener('change', updateDebridFields);
         });
@@ -659,7 +688,7 @@
         // Chargement initial
         if (prefillConfig && Object.keys(prefillConfig).length > 0) {
             document.getElementById('tmdbKey').value = prefillConfig.tmdb_key || '';
-            
+
             // Détecter quel service est configuré
             if (prefillConfig.alldebrid_key && prefillConfig.alldebrid_key.trim()) {
                 document.getElementById('debridAlldebrid').checked = true;
@@ -673,9 +702,9 @@
             } else {
                 document.getElementById('debridNone').checked = true;
             }
-            
+
             updateDebridFields();
-            
+
             // qBit
             if (prefillConfig.qbittorrent) {
                 document.getElementById('qbitUrl').value = prefillConfig.qbittorrent.host || '';
@@ -688,12 +717,13 @@
             document.getElementById('yggPasskey').value = prefillConfig.ygg_passkey || '';
             document.getElementById('abnUsername').value = prefillConfig.abn_username || '';
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
-            
+            document.getElementById('lacalePasskey').value = prefillConfig.lacale_passkey || '';
+
             // Filtre de taille
             if (prefillConfig.max_size !== undefined) {
                 document.getElementById('maxSize').value = prefillConfig.max_size.toString();
             }
-            
+
             if (prefillConfig.trackers && prefillConfig.trackers.length > 0) {
                 prefillConfig.trackers.forEach(t => addTracker(t));
             } else {
@@ -702,20 +732,20 @@
         } else {
             addTracker();
         }
-        
+
         // Masquer la section qBittorrent si désactivée côté serveur
         if (!qbittorrentEnabled) {
             const qbitSection = document.getElementById('qbittorrentSection');
             if (qbitSection) {
                 qbitSection.style.display = 'none';
             }
-            
+
             // Masquer l'option "Aucun (qBittorrent seulement)"
             const debridNoneLabel = document.getElementById('debridNoneLabel');
             if (debridNoneLabel) {
                 debridNoneLabel.style.display = 'none';
             }
-            
+
             // Si "Aucun" était sélectionné, sélectionner AllDebrid par défaut
             const debridNone = document.getElementById('debridNone');
             if (debridNone && debridNone.checked) {
@@ -723,7 +753,7 @@
                 updateDebridFields();
             }
         }
-        
+
         // Afficher le blurb personnalisé si configuré
         // Afficher la version
         if (appVersion) {
@@ -744,13 +774,13 @@
 
         function generateLink() {
             const tmdbKey = document.getElementById('tmdbKey').value.trim();
-            
+
             // Vérifier quel service de débridage est sélectionné
             const selectedDebrid = document.querySelector('input[name="debridService"]:checked').value;
             let alldebridKey = '';
             let torboxKey = '';
             let debridlinkKey = '';
-            
+
             if (selectedDebrid === 'alldebrid') {
                 alldebridKey = document.getElementById('alldebridKey').value.trim();
                 if (!alldebridKey) {
@@ -770,31 +800,32 @@
                     return;
                 }
             }
-            
+
             // qBit Config
             const qbitUrl = document.getElementById('qbitUrl').value.trim();
             const qbitUser = document.getElementById('qbitUser').value.trim();
             const qbitPass = document.getElementById('qbitPass').value.trim();
             const qbitPublicUrl = document.getElementById('qbitPublicUrl').value.trim();
-            
+
             const hasQbit = qbitUrl && qbitPublicUrl;
-            
+
             const sharewoodPasskey = document.getElementById('sharewoodPasskey').value.trim();
             const yggPasskey = document.getElementById('yggPasskey').value.trim();
             const abnUsername = document.getElementById('abnUsername').value.trim();
             const abnPassword = document.getElementById('abnPassword').value.trim();
+            const lacalePasskey = document.getElementById('lacalePasskey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
-            
+
             if (!tmdbKey) {
                 alert("Erreur : La clé TMDB est obligatoire.");
                 return;
             }
-            
+
             if (selectedDebrid === 'none' && !qbittorrentEnabled) {
                 alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox ou Debrid-Link).");
                 return;
             }
-            
+
             if (selectedDebrid === 'none' && !hasQbit) {
                 alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link), soit qBittorrent.");
                 return;
@@ -804,10 +835,10 @@
             document.querySelectorAll('.tracker-item').forEach(item => {
                 const url = item.querySelector('.tracker-url').value.trim();
                 const token = item.querySelector('.tracker-token').value.trim();
-                
+
                 if (url && token) {
                     trackers.push({
-                        url: url.replace(/\/$/, ''), 
+                        url: url.replace(/\/$/, ''),
                         token: token
                     });
                 }
@@ -830,6 +861,7 @@
                 ygg_passkey: yggPasskey,
                 abn_username: abnUsername,
                 abn_password: abnPassword,
+                lacale_passkey: lacalePasskey,
                 max_size: maxSize,
                 qbittorrent: hasQbit ? {
                     host: qbitUrl,
@@ -857,10 +889,10 @@
             const linkDiv = document.getElementById('installLink');
             const link = document.getElementById('stremioLink');
             const extraLinks = document.getElementById('extraLinks');
-            
+
             link.href = installUrl;
             linkDiv.style.display = 'block';
-            
+
             extraLinks.innerHTML = `
                 <div class="extra-links">
                     <div class="copy-row">
@@ -874,9 +906,10 @@
                     </div>
                 </div>
             `;
-            
-            linkDiv.scrollIntoView({behavior: 'smooth'});
+
+            linkDiv.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>
+
 </html>

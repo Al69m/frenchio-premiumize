@@ -35,6 +35,7 @@ from services.debridlink import DebridLinkService
 from services.sharewood import SharewoodService
 from services.ygg import YggService
 from services.abn import ABNService
+from services.lacale import LaCaleService
 from services.qbittorrent import QBittorrentService
 from utils import format_size, parse_torrent_name, check_season_episode
 
@@ -56,7 +57,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -418,6 +419,25 @@ async def handle_stream(request):
         async def empty(): return []
         tasks.append(empty())
 
+    # Tâche LaCale
+    if config.get('lacale_passkey'):
+        logging.info("Starting LaCale search")
+        lacale_service = LaCaleService(config.get('lacale_passkey'))
+        
+        title = media_info.get('title') or media_info.get('name') if media_info else ""
+        year = ""
+        if media_info:
+            date = media_info.get('release_date') or media_info.get('first_air_date')
+            year = date.split('-')[0] if date else ""
+
+        if stream_type == 'movie':
+            tasks.append(lacale_service.search_movie(title, year))
+        elif stream_type == 'series':
+            tasks.append(lacale_service.search_series(title, season, episode))
+    else:
+        async def empty(): return []
+        tasks.append(empty())
+
     # Exécution
     try:
         results_list = await asyncio.gather(*tasks)
@@ -425,15 +445,16 @@ async def handle_stream(request):
         sharewood_results = results_list[1] if len(results_list) > 1 else []
         ygg_results = results_list[2] if len(results_list) > 2 else []
         abn_results = results_list[3] if len(results_list) > 3 else []
+        lacale_results = results_list[4] if len(results_list) > 4 else []
     finally:
         # Fermer la session ABN proprement
         if abn_service:
             await abn_service.close()
     
-    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, Sharewood={len(sharewood_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}")
+    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, Sharewood={len(sharewood_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, LaCale={len(lacale_results)}")
     
     # Fusion et Déduplication
-    all_torrents = unit3d_results + sharewood_results + ygg_results + abn_results
+    all_torrents = unit3d_results + sharewood_results + ygg_results + abn_results + lacale_results
     
     # Filtrage par taille si configuré
     max_size_gb = config.get('max_size', 0)
@@ -499,7 +520,7 @@ async def handle_stream(request):
     if not torrents:
         return web.json_response({"streams": []})
 
-    logging.info(f"Total unique torrents (UNIT3D + Sharewood + YGG + ABN): {len(torrents)}")
+    logging.info(f"Total unique torrents (UNIT3D + Sharewood + YGG + ABN + LaCale): {len(torrents)}")
 
     streams = []
     host_url = f"{request.scheme}://{request.host}"
@@ -571,6 +592,7 @@ async def handle_stream(request):
         source_prefix = "[Sharewood]" if torrent.get('source') == 'sharewood' else \
                        "[YGG]" if torrent.get('source') == 'ygg' else \
                        "[ABN]" if torrent.get('source') == 'abn' else \
+                       "[LaCale]" if torrent.get('source') == 'lacale' else \
                        f"[{torrent.get('tracker_name', 'UNIT3D')}]"
         
         size_str = format_size(torrent.get('size', 0))
@@ -621,6 +643,7 @@ async def handle_stream(request):
                 source_prefix = "[Sharewood]" if torrent.get('source') == 'sharewood' else \
                                "[YGG]" if torrent.get('source') == 'ygg' else \
                                "[ABN]" if torrent.get('source') == 'abn' else \
+                               "[LaCale]" if torrent.get('source') == 'lacale' else \
                                f"[{torrent.get('tracker_name', 'UNIT3D')}]"
                 
                 size_str = format_size(torrent.get('size', 0))
