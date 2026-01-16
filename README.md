@@ -12,7 +12,7 @@ Suite à la fermeture de YGG aux services de debrid, cet addon permet de continu
 
 ## ✨ Fonctionnalités
 
-- 🔍 **Recherche multi-trackers** : UNIT3D, Sharewood, YGGTorrent, ABNormal
+- 🔍 **Recherche multi-trackers** : UNIT3D, Sharewood, YGGTorrent, ABNormal, La-Cale
 - ⚡ **Débridage multi-services** : AllDebrid, TorBox, Debrid-Link - Streaming instantané des torrents cachés
 - 📥 **qBittorrent Support** : Streaming direct pour les torrents non-cachés
 - 🎯 **Sélection intelligente** : Détection automatique des épisodes dans les packs de saisons
