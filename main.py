@@ -57,7 +57,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -182,7 +182,7 @@ async def handle_manifest(request):
         "types": ["movie", "series"],
         "catalogs": [],
         "resources": ["stream"],
-        # "idPrefixes": ["tt"], # Supprimé car inutile si catalogs vide
+        "idPrefixes": ["tt"],
         "behaviorHints": {
             "configurable": True,
         }
