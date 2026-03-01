@@ -36,6 +36,7 @@ from services.sharewood import SharewoodService
 from services.ygg import YggService
 from services.abn import ABNService
 from services.lacale import LaCaleService
+from services.c411 import C411Service
 from services.qbittorrent import QBittorrentService
 from utils import format_size, parse_torrent_name, check_season_episode
 
@@ -170,7 +171,7 @@ async def handle_manifest(request):
         addon_name += f" {MANIFEST_TITLE_SUFFIX}"
     
     # Description de base (le blurb s'affiche dans la page de config)
-    description = "Stream from French Trackers (UNIT3D, Sharewood, YGG, ABN) via AllDebrid, TorBox, DebridLink ou qBittorrent"
+    description = "Stream from French Trackers (UNIT3D, Sharewood, YGG, ABN, LaCale, C411) via AllDebrid, TorBox, DebridLink ou qBittorrent"
 
     manifest = {
         "id": "community.aymene69.frenchio",
@@ -438,6 +439,19 @@ async def handle_stream(request):
         async def empty(): return []
         tasks.append(empty())
 
+    # Tâche C411
+    if config.get('c411_apikey'):
+        logging.info("Starting C411 search")
+        c411_service = C411Service(config.get('c411_apikey'))
+        
+        if stream_type == 'movie':
+            tasks.append(c411_service.search_movie(title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
+        elif stream_type == 'series':
+            tasks.append(c411_service.search_series(title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
+    else:
+        async def empty(): return []
+        tasks.append(empty())
+
     # Exécution
     try:
         results_list = await asyncio.gather(*tasks)
@@ -446,15 +460,16 @@ async def handle_stream(request):
         ygg_results = results_list[2] if len(results_list) > 2 else []
         abn_results = results_list[3] if len(results_list) > 3 else []
         lacale_results = results_list[4] if len(results_list) > 4 else []
+        c411_results = results_list[5] if len(results_list) > 5 else []
     finally:
         # Fermer la session ABN proprement
         if abn_service:
             await abn_service.close()
     
-    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, Sharewood={len(sharewood_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, LaCale={len(lacale_results)}")
+    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, Sharewood={len(sharewood_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, LaCale={len(lacale_results)}, C411={len(c411_results)}")
     
     # Fusion et Déduplication
-    all_torrents = unit3d_results + sharewood_results + ygg_results + abn_results + lacale_results
+    all_torrents = unit3d_results + sharewood_results + ygg_results + abn_results + lacale_results + c411_results
     
     # Filtrage par taille si configuré
     max_size_gb = config.get('max_size', 0)
@@ -520,7 +535,7 @@ async def handle_stream(request):
     if not torrents:
         return web.json_response({"streams": []})
 
-    logging.info(f"Total unique torrents (UNIT3D + Sharewood + YGG + ABN + LaCale): {len(torrents)}")
+    logging.info(f"Total unique torrents (UNIT3D + Sharewood + YGG + ABN + LaCale + C411): {len(torrents)}")
 
     streams = []
     host_url = f"{request.scheme}://{request.host}"
@@ -593,6 +608,7 @@ async def handle_stream(request):
                        "[YGG]" if torrent.get('source') == 'ygg' else \
                        "[ABN]" if torrent.get('source') == 'abn' else \
                        "[LaCale]" if torrent.get('source') == 'lacale' else \
+                       "[C411]" if torrent.get('source') == 'c411' else \
                        f"[{torrent.get('tracker_name', 'UNIT3D')}]"
         
         size_str = format_size(torrent.get('size', 0))
@@ -644,6 +660,7 @@ async def handle_stream(request):
                                "[YGG]" if torrent.get('source') == 'ygg' else \
                                "[ABN]" if torrent.get('source') == 'abn' else \
                                "[LaCale]" if torrent.get('source') == 'lacale' else \
+                               "[C411]" if torrent.get('source') == 'c411' else \
                                f"[{torrent.get('tracker_name', 'UNIT3D')}]"
                 
                 size_str = format_size(torrent.get('size', 0))

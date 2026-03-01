@@ -445,7 +445,8 @@
                 <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG & ABN via AllDebrid, TorBox, Debrid-Link ou
+            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG, ABN, La-Cale & C411 via AllDebrid, TorBox,
+                Debrid-Link ou
                 qBittorrent</div>
         </header>
 
@@ -602,6 +603,12 @@
                 <span class="help-text">Votre passkey <a href="https://la-cale.space"
                         target="_blank">La-Cale</a>.</span>
             </div>
+
+            <div class="form-group">
+                <label for="c411Apikey">API Key C411</label>
+                <input type="text" id="c411Apikey" placeholder="API Key">
+                <span class="help-text">Votre API Key sur <a href="https://c411.org" target="_blank">C411</a>.</span>
+            </div>
         </div>
 
         <!-- Filtres -->
@@ -733,6 +740,7 @@
             document.getElementById('abnUsername').value = prefillConfig.abn_username || '';
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
             document.getElementById('lacalePasskey').value = prefillConfig.lacale_passkey || '';
+            document.getElementById('c411Apikey').value = prefillConfig.c411_apikey || '';
 
             // Filtre de taille
             if (prefillConfig.max_size !== undefined) {
@@ -829,6 +837,7 @@
             const abnUsername = document.getElementById('abnUsername').value.trim();
             const abnPassword = document.getElementById('abnPassword').value.trim();
             const lacalePasskey = document.getElementById('lacalePasskey').value.trim();
+            const c411Apikey = document.getElementById('c411Apikey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
 
             if (!tmdbKey) {
@@ -877,6 +886,7 @@
                 abn_username: abnUsername,
                 abn_password: abnPassword,
                 lacale_passkey: lacalePasskey,
+                c411_apikey: c411Apikey,
                 max_size: maxSize,
                 qbittorrent: hasQbit ? {
                     host: qbitUrl,
