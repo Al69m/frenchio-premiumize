@@ -62,77 +62,79 @@ class AllDebridService:
         
         return files
 
-    async def cleanup(self):
+    async def _delete_magnets(self, magnet_ids):
         """
-        Nettoie les magnets finis ou en erreur pour ne pas polluer le compte.
-        On évite de supprimer ce qui est en cours de téléchargement (Downloading).
+        Supprime des magnets spécifiques par leurs IDs.
+        Traite en petits lots pour éviter le rate-limiting AllDebrid.
         """
-        url_list = f"{self.base_url}/magnet/status"
-        params = {
-            "agent": self.agent,
-            "apikey": self.api_key
-        }
+        if not magnet_ids:
+            return
+        
+        logging.info(f"Cleanup: Deleting {len(magnet_ids)} magnets we uploaded")
+        
+        delete_url = f"{self.base_url}/magnet/delete"
+        batch_size = 5
+        failed_ids = []
+        success_count = 0
         
         async with aiohttp.ClientSession(trust_env=True) as session:
             try:
-                # 1. Récupérer la liste
-                async with session.get(url_list, params=params) as resp:
-                    if resp.status != 200:
-                        return
-                    data = await resp.json()
-                    if data.get('status') != 'success':
-                        return
+                for i in range(0, len(magnet_ids), batch_size):
+                    batch = magnet_ids[i:i + batch_size]
+                    tasks = []
+                    for mid in batch:
+                        data = {
+                            "agent": self.agent,
+                            "apikey": self.api_key,
+                            "id": mid
+                        }
+                        tasks.append(session.post(delete_url, data=data))
                     
-                    magnets = data.get('data', {}).get('magnets', [])
-                    if not magnets:
-                        return
-
-                # 2. Identifier ceux à supprimer
-                ids_to_delete = []
-                logging.info(f"Cleanup: Checking {len(magnets)} magnets")
-                
-                for m in magnets:
-                    status_code = m.get('statusCode')
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
                     
-                    # 4: Ready
-                    if status_code != 4: 
-                        ids_to_delete.append(m['id'])
+                    for mid, res in zip(batch, results):
+                        ok = False
+                        if isinstance(res, aiohttp.ClientResponse):
+                            try:
+                                js = await res.json()
+                                if res.status == 200 and js.get('status') == 'success':
+                                    success_count += 1
+                                    ok = True
+                                else:
+                                    logging.warning(f"Cleanup: Delete magnet {mid} failed: HTTP {res.status}, response={js}")
+                            except Exception as e:
+                                logging.warning(f"Cleanup: Delete magnet {mid} parse error: {e}")
+                        elif isinstance(res, Exception):
+                            logging.warning(f"Cleanup: Delete magnet {mid} exception: {res}")
+                        if not ok:
+                            failed_ids.append(mid)
+                    
+                    # Petite pause entre les lots pour ne pas rate-limit
+                    if i + batch_size < len(magnet_ids):
+                        await asyncio.sleep(0.5)
                 
-                if not ids_to_delete:
-                    logging.info("Cleanup: Nothing to delete")
-                    return
-
-                logging.info(f"Cleaning up {len(ids_to_delete)} magnets from AllDebrid")
-
-                # 3. Supprimer (POST obligatoire)
-                delete_url = f"{self.base_url}/magnet/delete"
-                
-                tasks = []
-                for mid in ids_to_delete:
-                    data = {
-                        "agent": self.agent,
-                        "apikey": self.api_key,
-                        "id": mid
-                    }
-                    tasks.append(session.post(delete_url, data=data))
-                
-                # Exécution parallèle
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                
-                success_count = 0
-                for res in results:
-                    if isinstance(res, aiohttp.ClientResponse) and res.status == 200:
+                # Retry les échecs une fois
+                if failed_ids:
+                    logging.info(f"Cleanup: Retrying {len(failed_ids)} failed deletions...")
+                    await asyncio.sleep(1)
+                    
+                    for mid in failed_ids:
                         try:
-                            js = await res.json()
-                            if js.get('status') == 'success':
-                                success_count += 1
+                            data = {
+                                "agent": self.agent,
+                                "apikey": self.api_key,
+                                "id": mid
+                            }
+                            async with session.post(delete_url, data=data) as resp:
+                                if resp.status == 200:
+                                    js = await resp.json()
+                                    if js.get('status') == 'success':
+                                        success_count += 1
+                            await asyncio.sleep(0.3)
                         except:
                             pass
                 
-                if success_count > 0:
-                    logging.info(f"Cleanup: Successfully deleted {success_count}/{len(ids_to_delete)} magnets")
-                else:
-                    logging.info("Cleanup: No magnets deleted")
+                logging.info(f"Cleanup: Deleted {success_count}/{len(magnet_ids)} magnets")
 
             except Exception as e:
                 logging.error(f"Cleanup Error: {e}")
@@ -140,15 +142,10 @@ class AllDebridService:
     async def check_availability(self, hashes):
         """
         Vérifie la disponibilité en UPLOADANT les magnets.
+        Supprime ensuite uniquement les magnets qu'on a uploadé (pas ceux pré-existants).
         """
         if not hashes:
             return {}
-            
-        # Nettoyage préalable (AVANT)
-        try:
-            await self.cleanup()
-        except Exception as e:
-            logging.error(f"Pre-check cleanup failed: {e}")
             
         # Nettoyage des hashs avant envoi
         cleaned_hashes = []
@@ -163,6 +160,7 @@ class AllDebridService:
         # Découpage en lots
         batch_size = 20
         all_availability = {}
+        uploaded_ids = []  # Track des IDs qu'on a uploadé nous-mêmes
         
         logging.info(f"Checking availability via UPLOAD for {len(cleaned_hashes)} hashes")
 
@@ -192,6 +190,11 @@ class AllDebridService:
                                 for m in magnets_data:
                                     h = m.get('hash') or m.get('magnet')
                                     
+                                    # Collecter l'ID pour suppression ultérieure
+                                    magnet_id = m.get('id')
+                                    if magnet_id:
+                                        uploaded_ids.append(magnet_id)
+                                    
                                     is_ready = m.get('ready', False)
                                     status_code = m.get('statusCode')
                                     
@@ -216,11 +219,10 @@ class AllDebridService:
                 except Exception as e:
                     logging.error(f"Erreur AllDebrid Upload Batch {i}: {e}")
         
-        # Nettoyage final (APRES)
+        # Suppression des magnets qu'on a uploadé (pas les pré-existants)
         try:
-            # Petite pause pour laisser l'API respirer et indexer les nouveaux ajouts
             await asyncio.sleep(1)
-            await self.cleanup()
+            await self._delete_magnets(uploaded_ids)
         except Exception as e:
             logging.error(f"Post-check cleanup failed: {e}")
 
