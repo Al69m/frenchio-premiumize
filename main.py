@@ -59,7 +59,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
