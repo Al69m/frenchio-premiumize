@@ -32,6 +32,7 @@ from services.unit3d import Unit3DService
 from services.alldebrid import AllDebridService
 from services.torbox import TorBoxService
 from services.debridlink import DebridLinkService
+from services.realdebrid import RealDebridService
 from services.sharewood import SharewoodService
 from services.ygg import YggService
 from services.abn import ABNService
@@ -59,7 +60,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.4.4"
+APP_VERSION = "1.4.5"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -267,6 +268,7 @@ async def handle_stream(request):
     alldebrid_service = None
     torbox_service = None
     debridlink_service = None
+    realdebrid_service = None
     
     if config.get('alldebrid_key') and config['alldebrid_key'].strip():
         alldebrid_service = AllDebridService(config['alldebrid_key'])
@@ -280,7 +282,11 @@ async def handle_stream(request):
         debridlink_service = DebridLinkService(config['debridlink_key'])
         logging.info("DebridLink service initialized")
     
-    if not alldebrid_service and not torbox_service and not debridlink_service:
+    if config.get('realdebrid_key') and config['realdebrid_key'].strip():
+        realdebrid_service = RealDebridService(config['realdebrid_key'])
+        logging.info("Real-Debrid service initialized")
+    
+    if not alldebrid_service and not torbox_service and not debridlink_service and not realdebrid_service:
         logging.info("No debrid service configured, using qBittorrent fallback")
     
     # qBittorrent optionnel
@@ -307,7 +313,7 @@ async def handle_stream(request):
         logging.info("qBittorrent disabled by QBITTORRENT_ENABLE environment variable")
     
     # Vérifier qu'au moins un service est configuré
-    if not alldebrid_service and not torbox_service and not debridlink_service and not qbit_service:
+    if not alldebrid_service and not torbox_service and not debridlink_service and not realdebrid_service and not qbit_service:
         logging.error("No debrid or torrent client configured!")
         return web.json_response({"streams": []})
     
@@ -463,6 +469,9 @@ async def handle_stream(request):
     try:
         results_list = await asyncio.gather(*tasks)
         unit3d_results = results_list[0]
+        for t in unit3d_results:
+            t['source'] = 'unit3d'
+            
         sharewood_results = results_list[1] if len(results_list) > 1 else []
         ygg_results = results_list[2] if len(results_list) > 2 else []
         abn_results = results_list[3] if len(results_list) > 3 else []
@@ -597,6 +606,13 @@ async def handle_stream(request):
         availability = await debridlink_service.check_availability(hashes)
         debrid_provider = "debridlink"
         logging.info(f"DebridLink: {len([v for v in availability.values() if v])} cached torrents")
+    
+    elif realdebrid_service:
+        # Real-Debrid check
+        hashes = [t['info_hash'] for t in torrents if t.get('info_hash')]
+        availability = await realdebrid_service.check_availability(hashes)
+        debrid_provider = "realdebrid"
+        logging.info(f"Real-Debrid: {len([v for v in availability.values() if v])} cached torrents")
 
     # 4. Générer les streams
     cached_torrents = []
@@ -617,6 +633,9 @@ async def handle_stream(request):
         elif debridlink_service:
             clean_hash = info_hash.lower().strip()
             is_cached = availability.get(clean_hash, False)
+        elif realdebrid_service:
+            clean_hash = info_hash.lower().strip()
+            is_cached = availability.get(clean_hash, False)
         else:
             clean_hash = info_hash.lower().strip()
             is_cached = False
@@ -625,24 +644,69 @@ async def handle_stream(request):
             cached_torrents.append((torrent, clean_hash))
         else:
             uncached_torrents.append((torrent, clean_hash))
+
+    # Application du Tri
+    sort_by = config.get('sort_by', 'tracker_priority')
     
+    if sort_by == 'size_asc':
+        def get_sort_size(item):
+            torrent, _ = item
+            return torrent.get('size', 0)
+        
+        cached_torrents.sort(key=get_sort_size)
+        uncached_torrents.sort(key=get_sort_size)
+        
+    elif sort_by == 'size_desc':
+        def get_sort_size(item):
+            torrent, _ = item
+            return torrent.get('size', 0)
+        
+        cached_torrents.sort(key=get_sort_size, reverse=True)
+        uncached_torrents.sort(key=get_sort_size, reverse=True)
+        
+    else:
+        # Tri personnalisé selon providers_order de la config (par défaut)
+        providers_order = config.get('providers_order', [])
+        if providers_order:
+            def get_sort_key(item):
+                torrent, _ = item
+                source = torrent.get('source', '')
+                try:
+                    return providers_order.index(source)
+                except ValueError:
+                    return len(providers_order)
+
+            # Utilisation de sort() qui est stable en Python
+            cached_torrents.sort(key=get_sort_key)
+            uncached_torrents.sort(key=get_sort_key)
+
     logging.info(f"Cached: {len(cached_torrents)}, Uncached: {len(uncached_torrents)}")
     
     # 4a. Streams débridés (cachés)
     for torrent, clean_hash in cached_torrents:
-        source_prefix = "[Sharewood]" if torrent.get('source') == 'sharewood' else \
-                       "[YGG]" if torrent.get('source') == 'ygg' else \
-                       "[ABN]" if torrent.get('source') == 'abn' else \
-                       "[LaCale]" if torrent.get('source') == 'lacale' else \
-                       "[C411]" if torrent.get('source') == 'c411' else \
-                       "[Torr9]" if torrent.get('source') == 'torr9' else \
-                       f"[{torrent.get('tracker_name', 'UNIT3D')}]"
+        # Extraire un nom propre pour les trackers UNIT3D (tracker_name = URL)
+        raw_tracker = torrent.get('tracker_name', 'UNIT3D')
+        if raw_tracker.startswith('http'):
+            # https://theoldschool.cc -> TheOldSchool
+            from urllib.parse import urlparse
+            domain = urlparse(raw_tracker).hostname or raw_tracker
+            clean_name = domain.split('.')[0].capitalize()
+        else:
+            clean_name = raw_tracker
+
+        source_prefix = "\n🌲 Sharewood" if torrent.get('source') == 'sharewood' else \
+                       "\n🐝 YGG" if torrent.get('source') == 'ygg' else \
+                       "\n🎬 ABN" if torrent.get('source') == 'abn' else \
+                       "\n⚓ LaCale" if torrent.get('source') == 'lacale' else \
+                       "\n📡 C411" if torrent.get('source') == 'c411' else \
+                       "\n🔥 Torr9" if torrent.get('source') == 'torr9' else \
+                       f"\n🌐 {clean_name}"
         
         size_str = format_size(torrent.get('size', 0))
         extra_info = parse_torrent_name(torrent.get('name', ''))
         
         provider_emoji = "⚡"  # Éclair pour tous les services de débridage
-        title = f"{provider_emoji} {extra_info}\n{torrent.get('name')}\n💾 {size_str} - {source_prefix}"
+        title = f"{provider_emoji} {extra_info}\n{torrent.get('name')}\n💾 {size_str}"
         
         # URL de résolution (utilise le provider configuré)
         resolve_url = f"{host_url}/{config_str}/resolve/{debrid_provider}/{clean_hash}"
@@ -653,7 +717,7 @@ async def handle_stream(request):
             resolve_url += "?type=movie"
 
         streams.append({
-            "name": "Frenchio",
+            "name": f"Frenchio{source_prefix}",
             "title": title,
             "url": resolve_url
         })
@@ -673,7 +737,7 @@ async def handle_stream(request):
         if cached_torrents:
             logging.info(f"qBittorrent: Skipping {len(uncached_torrents)} uncached torrents (cached results available)")
         else:
-            limit = 10 if (alldebrid_service or torbox_service or debridlink_service) else 25  # Plus de résultats si pas de debrid
+            limit = 10 if (alldebrid_service or torbox_service or debridlink_service or realdebrid_service) else 25  # Plus de résultats si pas de debrid
             logging.info(f"qBittorrent: Processing {min(len(uncached_torrents), limit)} torrents (out of {len(uncached_torrents)} available)")
             
             qbit_added = 0
@@ -683,19 +747,28 @@ async def handle_stream(request):
                     logging.debug(f"Skipping torrent without download link: {torrent.get('name')}")
                     continue
                 
-                source_prefix = "[Sharewood]" if torrent.get('source') == 'sharewood' else \
-                               "[YGG]" if torrent.get('source') == 'ygg' else \
-                               "[ABN]" if torrent.get('source') == 'abn' else \
-                               "[LaCale]" if torrent.get('source') == 'lacale' else \
-                               "[C411]" if torrent.get('source') == 'c411' else \
-                               "[Torr9]" if torrent.get('source') == 'torr9' else \
-                               f"[{torrent.get('tracker_name', 'UNIT3D')}]"
+                # Extraire un nom propre pour les trackers UNIT3D
+                raw_tracker = torrent.get('tracker_name', 'UNIT3D')
+                if raw_tracker.startswith('http'):
+                    from urllib.parse import urlparse
+                    domain = urlparse(raw_tracker).hostname or raw_tracker
+                    clean_name = domain.split('.')[0].capitalize()
+                else:
+                    clean_name = raw_tracker
+
+                source_prefix = "🌲 Sharewood" if torrent.get('source') == 'sharewood' else \
+                               "🐝 YGG" if torrent.get('source') == 'ygg' else \
+                               "🎬 ABN" if torrent.get('source') == 'abn' else \
+                               "⚓ LaCale" if torrent.get('source') == 'lacale' else \
+                               "📡 C411" if torrent.get('source') == 'c411' else \
+                               "🔥 Torr9" if torrent.get('source') == 'torr9' else \
+                               f"🌐 {clean_name}"
                 
                 size_str = format_size(torrent.get('size', 0))
                 extra_info = parse_torrent_name(torrent.get('name', ''))
                 
                 # Indicateur qBittorrent
-                title = f"📥 {extra_info}\n{torrent.get('name')}\n💾 {size_str} - {source_prefix} [qBittorrent]"
+                title = f"📥 {extra_info}\n{torrent.get('name')}\n💾 {size_str} [qBittorrent]"
                 
                 import urllib.parse
                 encoded_link = urllib.parse.quote(download_link, safe='')
@@ -709,7 +782,7 @@ async def handle_stream(request):
                     resolve_url += "&type=movie"
 
                 streams.append({
-                    "name": "Frenchio",
+                    "name": f"Frenchio {source_prefix}",
                     "title": title,
                     "url": resolve_url
                 })
@@ -881,6 +954,30 @@ async def handle_resolve(request):
         else:
             logging.error(f"DebridLink resolve: Failed to get stream URL for hash {info_hash}")
             return web.Response(status=404, text="Could not resolve DebridLink stream")
+    
+    # === MODE Real-Debrid ===
+    elif service_name == 'realdebrid':
+        logging.info(f"Real-Debrid resolve: Starting with hash={info_hash}, season={season}, episode={episode}")
+        
+        realdebrid_key = config.get('realdebrid_key')
+        if not realdebrid_key:
+            return web.Response(status=400, text="Real-Debrid not configured")
+        
+        debrid_service = RealDebridService(realdebrid_key)
+        
+        stream_url = await debrid_service.unlock_magnet(
+            info_hash,
+            season=int(season) if season else None,
+            episode=int(episode) if episode else None,
+            media_type=media_type
+        )
+        
+        if stream_url:
+            logging.info(f"Real-Debrid resolve: Redirecting to: {stream_url}")
+            raise web.HTTPFound(stream_url)
+        else:
+            logging.error(f"Real-Debrid resolve: Failed to get stream URL for hash {info_hash}")
+            return web.Response(status=404, text="Could not resolve Real-Debrid stream")
     
     else:
         return web.Response(status=400, text=f"Unknown service: {service_name}")

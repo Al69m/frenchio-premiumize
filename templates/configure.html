@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuration Frenchio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
         :root {
             --primary: #6366f1;
@@ -501,6 +502,10 @@
                         <input type="radio" name="debridService" value="debridlink" id="debridDebridlink">
                         <span>Debrid-Link</span>
                     </label>
+                    <label class="option-tile">
+                        <input type="radio" name="debridService" value="realdebrid" id="debridRealdebrid">
+                        <span>Real-Debrid</span>
+                    </label>
                 </div>
             </div>
 
@@ -522,6 +527,13 @@
                 <label for="debridlinkKey">Clé API Debrid-Link</label>
                 <input type="text" id="debridlinkKey" placeholder="Ex: xyz789...">
                 <span class="help-text">Alternative à AllDebrid. <a href="https://debrid-link.com/webapp/apikey"
+                        target="_blank">Obtenir ma clé</a></span>
+            </div>
+
+            <div class="form-group" id="realdebridKeyGroup" style="display: none;">
+                <label for="realdebridKey">Clé API Real-Debrid</label>
+                <input type="text" id="realdebridKey" placeholder="Ex: abc123...">
+                <span class="help-text">Alternative à AllDebrid. <a href="https://real-debrid.com/apitoken"
                         target="_blank">Obtenir ma clé</a></span>
             </div>
         </div>
@@ -787,20 +799,6 @@
             </div>
         </div>
 
-        <!-- Filtres -->
-        <div class="card">
-            <div class="card-header">
-                <h2>⚙️ Filtres <span class="badge">Optionnel</span></h2>
-            </div>
-
-            <div class="form-group">
-                <label for="maxSize">Taille maximale des torrents (Go)</label>
-                <input type="number" id="maxSize" placeholder="50" value="50" min="0" step="1">
-                <span class="help-text">Limite en Go (0 = aucune limite). Filtrer les torrents trop volumineux pour
-                    économiser de la bande passante.</span>
-            </div>
-        </div>
-
         <!-- Trackers UNIT3D -->
         <div class="card">
             <div class="card-header">
@@ -818,7 +816,97 @@
                 <!-- Les trackers seront ajoutés ici -->
             </div>
 
-            <button type="button" class="btn btn-outline" onclick="addTracker()">+ Ajouter un Tracker UNIT3D</button>
+            <button type="button" class="btn btn-outline" onclick="addTracker()">+ Ajouter un Tracker
+                UNIT3D</button>
+        </div>
+
+        <!-- Filtres -->
+        <div class="card">
+            <div class="card-header">
+                <h2>⚙️ Filtres <span class="badge">Optionnel</span></h2>
+            </div>
+
+            <div class="form-group">
+                <label for="maxSize">Taille maximale des torrents (Go)</label>
+                <input type="number" id="maxSize" placeholder="50" value="50" min="0" step="1">
+                <span class="help-text">Limite en Go (0 = aucune limite). Filtrer les torrents trop volumineux pour
+                    économiser de la bande passante.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="sortBy">Trier les résultats par</label>
+                <select id="sortBy">
+                    <option value="tracker_priority">Priorité des Trackers</option>
+                    <option value="size_asc">Taille (Croissante ⬇️)</option>
+                    <option value="size_desc">Taille (Décroissante ⬆️)</option>
+                </select>
+                <span class="help-text">Choisissez comment les torrents trouvés doivent être ordonnés (les sources
+                    débridées restent toujours en premier). L'ordre par Tracker utilisera le drag & drop
+                    ci-dessous.</span>
+            </div>
+        </div>
+
+        <!-- Ordre de priorité -->
+        <div class="card">
+            <div class="card-header">
+                <h2>↕️ Ordre d'affichage des Trackers</h2>
+            </div>
+            <p class="help-text" style="margin-bottom: 20px;">
+                Glissez-déposez les éléments ci-dessous pour définir l'ordre dans lequel les résultats apparaîtront
+                dans
+                Stremio.
+            </p>
+
+            <style>
+                .sortable-list {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                }
+
+                .sortable-item {
+                    display: flex;
+                    align-items: center;
+                    background: var(--bg-secondary);
+                    border: 2px solid var(--border);
+                    border-radius: var(--radius);
+                    padding: 12px 16px;
+                    margin-bottom: 8px;
+                    cursor: grab;
+                    font-weight: 600;
+                    transition: var(--transition);
+                }
+
+                .sortable-item:active {
+                    cursor: grabbing;
+                }
+
+                .sortable-item:hover {
+                    border-color: var(--primary-light);
+                }
+
+                .sortable-item.sortable-ghost {
+                    opacity: 0.4;
+                    background: var(--bg);
+                }
+
+                .drag-handle {
+                    margin-right: 12px;
+                    color: var(--text-muted);
+                    font-size: 1.2rem;
+                }
+            </style>
+
+            <ul id="trackerOrderList" class="sortable-list">
+                <li class="sortable-item" data-id="unit3d"><span class="drag-handle">≡</span> 🔒 Tous les Trackers
+                    UNIT3D</li>
+                <li class="sortable-item" data-id="ygg"><span class="drag-handle">≡</span> 🐝 YGG</li>
+                <li class="sortable-item" data-id="sharewood"><span class="drag-handle">≡</span> 🌲 Sharewood</li>
+                <li class="sortable-item" data-id="torr9"><span class="drag-handle">≡</span> 🔥 Torr9</li>
+                <li class="sortable-item" data-id="abn"><span class="drag-handle">≡</span> 🎬 ABN</li>
+                <li class="sortable-item" data-id="c411"><span class="drag-handle">≡</span> 📡 C411</li>
+                <li class="sortable-item" data-id="lacale"><span class="drag-handle">≡</span> ⚓ La-Cale</li>
+            </ul>
         </div>
 
         <div style="text-align: center; margin-top: 40px;">
@@ -912,6 +1000,8 @@
                 selectedService === 'torbox' ? 'block' : 'none';
             document.getElementById('debridlinkKeyGroup').style.display =
                 selectedService === 'debridlink' ? 'block' : 'none';
+            document.getElementById('realdebridKeyGroup').style.display =
+                selectedService === 'realdebrid' ? 'block' : 'none';
         }
 
         document.querySelectorAll('input[name="debridService"]').forEach(radio => {
@@ -932,6 +1022,9 @@
             } else if (prefillConfig.debridlink_key && prefillConfig.debridlink_key.trim()) {
                 document.getElementById('debridDebridlink').checked = true;
                 document.getElementById('debridlinkKey').value = prefillConfig.debridlink_key;
+            } else if (prefillConfig.realdebrid_key && prefillConfig.realdebrid_key.trim()) {
+                document.getElementById('debridRealdebrid').checked = true;
+                document.getElementById('realdebridKey').value = prefillConfig.realdebrid_key;
             } else {
                 document.getElementById('debridNone').checked = true;
             }
@@ -967,6 +1060,21 @@
             // Filtre de taille
             if (prefillConfig.max_size !== undefined) {
                 document.getElementById('maxSize').value = prefillConfig.max_size.toString();
+            }
+
+            // Tri
+            if (prefillConfig.sort_by) {
+                document.getElementById('sortBy').value = prefillConfig.sort_by;
+            }
+
+            // Ordre de priorité
+            if (prefillConfig.providers_order && prefillConfig.providers_order.length > 0) {
+                const list = document.getElementById('trackerOrderList');
+                const items = Array.from(list.children);
+                prefillConfig.providers_order.forEach(id => {
+                    const el = items.find(item => item.getAttribute('data-id') === id);
+                    if (el) list.appendChild(el);
+                });
             }
 
             if (prefillConfig.trackers && prefillConfig.trackers.length > 0) {
@@ -1017,6 +1125,13 @@
             }
         }
 
+        // Initialiser SortableJS
+        new Sortable(document.getElementById('trackerOrderList'), {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            handle: '.sortable-item'
+        });
+
         function generateLink() {
             const tmdbKey = document.getElementById('tmdbKey').value.trim();
 
@@ -1025,6 +1140,7 @@
             let alldebridKey = '';
             let torboxKey = '';
             let debridlinkKey = '';
+            let realdebridKey = '';
 
             if (selectedDebrid === 'alldebrid') {
                 alldebridKey = document.getElementById('alldebridKey').value.trim();
@@ -1042,6 +1158,12 @@
                 debridlinkKey = document.getElementById('debridlinkKey').value.trim();
                 if (!debridlinkKey) {
                     alert("Erreur : Veuillez entrer votre clé API Debrid-Link.");
+                    return;
+                }
+            } else if (selectedDebrid === 'realdebrid') {
+                realdebridKey = document.getElementById('realdebridKey').value.trim();
+                if (!realdebridKey) {
+                    alert("Erreur : Veuillez entrer votre clé API Real-Debrid.");
                     return;
                 }
             }
@@ -1062,6 +1184,7 @@
             const c411Apikey = document.getElementById('c411Apikey').value.trim();
             const torr9Passkey = document.getElementById('torr9Passkey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
+            const sortBy = document.getElementById('sortBy').value;
 
             if (!tmdbKey) {
                 alert("Erreur : La clé TMDB est obligatoire.");
@@ -1069,12 +1192,12 @@
             }
 
             if (selectedDebrid === 'none' && !qbittorrentEnabled) {
-                alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox ou Debrid-Link).");
+                alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox, Debrid-Link ou Real-Debrid).");
                 return;
             }
 
             if (selectedDebrid === 'none' && !hasQbit) {
-                alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link), soit qBittorrent.");
+                alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link/Real-Debrid), soit qBittorrent.");
                 return;
             }
 
@@ -1093,16 +1216,21 @@
 
             // YGG est toujours actif, pas besoin de vérifier
             // Les utilisateurs peuvent utiliser YGG sans passkey avec les services de debrid
-            if (trackers.length === 0 && !sharewoodPasskey && !abnUsername && !alldebridKey && !torboxKey && !debridlinkKey) {
+            if (trackers.length === 0 && !sharewoodPasskey && !abnUsername && !alldebridKey && !torboxKey && !debridlinkKey && !realdebridKey) {
                 alert("Attention : Sans tracker configuré ni service de debrid, Frenchio ne retournera que les résultats publics de YGG.");
                 return;
             }
+
+            // Récupérer l'ordre de priorité
+            const providersOrder = Array.from(document.querySelectorAll('#trackerOrderList .sortable-item'))
+                .map(li => li.getAttribute('data-id'));
 
             const config = {
                 tmdb_key: tmdbKey,
                 alldebrid_key: alldebridKey,
                 torbox_key: torboxKey,
                 debridlink_key: debridlinkKey,
+                realdebrid_key: realdebridKey,
                 trackers: trackers,
                 sharewood_passkey: sharewoodPasskey,
                 abn_username: abnUsername,
@@ -1111,6 +1239,8 @@
                 c411_apikey: c411Apikey,
                 torr9_passkey: torr9Passkey,
                 max_size: maxSize,
+                sort_by: sortBy,
+                providers_order: providersOrder,
                 qbittorrent: hasQbit ? {
                     host: qbitUrl,
                     username: qbitUser,
