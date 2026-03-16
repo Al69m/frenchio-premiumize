@@ -40,7 +40,7 @@ from services.lacale import LaCaleService
 from services.c411 import C411Service
 from services.torr9 import Torr9Service
 from services.qbittorrent import QBittorrentService
-from utils import format_size, parse_torrent_name, check_season_episode, check_title_match
+from utils import format_size, parse_torrent_name, check_season_episode, check_title_match, is_video_file
 
 # Configuration du logging
 logging.basicConfig(
@@ -188,7 +188,8 @@ async def handle_manifest(request):
         "idPrefixes": ["tt"],
         "behaviorHints": {
             "configurable": True,
-        }
+        },
+        "beyiond_support": True
     }
     return web.json_response(manifest)
 
@@ -217,7 +218,8 @@ async def handle_manifest_no_config(request):
         "behaviorHints": {
             "configurable": True,
             "configurationRequired": True
-        }
+        },
+        "beyiond_support": True
     }
     return web.json_response(manifest)
 
@@ -498,6 +500,14 @@ async def handle_stream(request):
         if filtered_count > 0:
             logging.info(f"Filtered {filtered_count} torrents exceeding {max_size_gb} Go")
     
+    
+    # Filtrage par type de fichier (Vidéos uniquement)
+    before_filter = len(all_torrents)
+    all_torrents = [t for t in all_torrents if is_video_file(t.get('name', ''))]
+    filtered_count = before_filter - len(all_torrents)
+    if filtered_count > 0:
+        logging.info(f"Filtered {filtered_count} non-video files")
+
     unique_torrents = {}
     
     for t in all_torrents:
@@ -528,23 +538,11 @@ async def handle_stream(request):
             #      # Filtrage par titre si nécessaire
             #      pass
 
-        # Filtrage par titre et année (Trackers sans vérification ID stricte)
+        # Filtrage par titre et année (Vérification systématique pour éviter les erreurs de mapping des trackers)
         if stream_type in ('movie', 'series'):
-            res_tmdb = t.get('tmdb_id') or t.get('tmdb')
-            res_imdb = t.get('imdb_id') or t.get('imdb')
-            
-            needs_title_check = True
-            if res_tmdb and str(res_tmdb) != "0" and tmdb_id and str(res_tmdb) == str(tmdb_id):
-                needs_title_check = False
-            elif res_imdb and str(res_imdb) != "0" and imdb_id:
-                clean_res = str(res_imdb).replace('tt', '')
-                clean_req = str(imdb_id).replace('tt', '')
-                if clean_res == clean_req:
-                    needs_title_check = False
-                    
-            if needs_title_check:
-                if not check_title_match(t.get('name', ''), target_title, original_title, year=year, is_movie=(stream_type == 'movie')):
-                    continue
+            if not check_title_match(t.get('name', ''), target_title, original_title, year=year, is_movie=(stream_type == 'movie')):
+                # logging.info(f"Filtered out (Title mismatch): {t.get('name')} for target {target_title}")
+                continue
 
         # Filtrage Série (SxxExx)
         # Si c'est une série, on vérifie que le titre correspond à la saison/épisode demandé
@@ -703,10 +701,10 @@ async def handle_stream(request):
                        f"\n🌐 {clean_name}"
         
         size_str = format_size(torrent.get('size', 0))
-        extra_info = parse_torrent_name(torrent.get('name', ''))
+        meta = parse_torrent_name(torrent.get('name', ''))
         
         provider_emoji = "⚡"  # Éclair pour tous les services de débridage
-        title = f"{provider_emoji} {extra_info}\n{torrent.get('name')}\n💾 {size_str}"
+        title = f"{provider_emoji} {meta['name']}\n{torrent.get('name')}\n💾 {size_str}"
         
         # URL de résolution (utilise le provider configuré)
         resolve_url = f"{host_url}/{config_str}/resolve/{debrid_provider}/{clean_hash}"
@@ -719,7 +717,12 @@ async def handle_stream(request):
         streams.append({
             "name": f"Frenchio{source_prefix}",
             "title": title,
-            "url": resolve_url
+            "url": resolve_url,
+            "size": torrent.get('size', 0),
+            "quality": meta.get('quality', ''),
+            "codec": meta.get('codec', ''),
+            "release_type": meta.get('release_type', ''),
+            "language": meta.get('language', '')
         })
     
     # 4b. Streams qBittorrent (non cachés, si configuré)
@@ -765,10 +768,10 @@ async def handle_stream(request):
                                f"🌐 {clean_name}"
                 
                 size_str = format_size(torrent.get('size', 0))
-                extra_info = parse_torrent_name(torrent.get('name', ''))
+                meta = parse_torrent_name(torrent.get('name', ''))
                 
                 # Indicateur qBittorrent
-                title = f"📥 {extra_info}\n{torrent.get('name')}\n💾 {size_str} [qBittorrent]"
+                title = f"📥 {meta['name']}\n{torrent.get('name')}\n💾 {size_str} [qBittorrent]"
                 
                 import urllib.parse
                 encoded_link = urllib.parse.quote(download_link, safe='')
@@ -784,7 +787,12 @@ async def handle_stream(request):
                 streams.append({
                     "name": f"Frenchio {source_prefix}",
                     "title": title,
-                    "url": resolve_url
+                    "url": resolve_url,
+                    "size": torrent.get('size', 0),
+                    "quality": meta.get('quality', ''),
+                    "codec": meta.get('codec', ''),
+                    "release_type": meta.get('release_type', ''),
+                    "language": meta.get('language', '')
                 })
                 qbit_added += 1
             

@@ -180,14 +180,22 @@ class RealDebridService:
         if not files:
             return None
 
-        video_extensions = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v')
+        video_extensions = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts', '.vob')
+        bad_extensions = ('.iso', '.pdf', '.epub', '.txt', '.nfo', '.jpg', '.jpeg', '.png', '.rar', '.zip')
 
         video_files = [f for f in files if any(
             f.get('name', '').lower().endswith(ext) for ext in video_extensions
         )]
 
         if not video_files:
-            video_files = files
+            # Fallback : exclure les extensions interdites si aucune vidéo n'est trouvée
+            video_files = [f for f in files if not any(
+                f.get('name', '').lower().endswith(ext) for ext in bad_extensions
+            )]
+        
+        if not video_files:
+            logging.error("RD (StremThru): No video files found in torrent")
+            return None
 
         if season is not None and episode is not None:
             s_str = f"{int(season):02d}"

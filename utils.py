@@ -14,7 +14,7 @@ def normalize_title(title):
 def check_title_match(torrent_name, title_fr, title_en, year=None, is_movie=False):
     """
     Vérifie si le titre français ou anglais est présent dans le nom du torrent.
-    Pour les films, vérifie aussi l'année.
+    Amélioré pour détecter les faux positifs (ex: Narcos match Narcos Mexico).
     """
     if not title_fr and not title_en:
         return True
@@ -23,30 +23,63 @@ def check_title_match(torrent_name, title_fr, title_en, year=None, is_movie=Fals
     norm_fr = normalize_title(title_fr)
     norm_en = normalize_title(title_en)
     
-    title_match = False
-    
-    if norm_fr:
-        pattern_fr = r'\b' + re.escape(norm_fr) + r'\b'
-        if re.search(pattern_fr, norm_torrent):
-            title_match = True
+    # Mots qui peuvent suivre un titre sans que ce soit un autre média
+    tech_tags = {
+        '1080p', '720p', '4k', '2160p', 'uhd', 'dvd', 'sd', 'bluray', 'brrip', 'bdrip',
+        'webrip', 'web', 'webdl', 'dvdrip', 'cam', 'ts', 'vff', 'vf', 'vfq', 'vf2', 
+        'vostfr', 'multi', 'truefrench', 'french', 'eng', 'english', 'en', 'vo', 'fr',
+        'x264', 'x265', 'hevc', 'h264', 'h265', 'av1', 'hdr', 'dv', 'dolby', 'vision',
+        '10bit', 'light', 'repack', 'proper', 'internal', 'extended', 'uncut',
+        'subfrench', 'subforced', 'nf', 'netflix', 'amzn', 'amazon', 'dnp', 'dsnp', 'hmax',
+        'ac3', 'dts', 'dd5', 'dd2', 'aac', 'mkv', 'mp4', 'avi', 'tv', 'show', 'complete',
+        'integrale', 'integra', 'vol', 'volume', 'part', 'party', 'uncut', 'dual', 'hdtv'
+    }
+
+    def is_strict_match(target, torrent):
+        if not target: return False
+        
+        # On cherche le titre exact avec bordures de mots
+        pattern = r'\b' + re.escape(target) + r'\b'
+        match = re.search(pattern, torrent)
+        if not match:
+            return False
             
-    if not title_match and norm_en:
-        pattern_en = r'\b' + re.escape(norm_en) + r'\b'
-        if re.search(pattern_en, norm_torrent):
-            title_match = True
+        # On vérifie ce qui suit immédiatement le titre
+        end_idx = match.end()
+        after_text = torrent[end_idx:].strip()
+        if not after_text:
+            return True # Titre exact à la fin
             
-    if not title_match:
-        if norm_fr and norm_fr in norm_torrent:
-            title_match = True
-        elif norm_en and norm_en in norm_torrent:
-            title_match = True
+        # On prend le prochain mot
+        next_word = after_text.split()[0]
+        
+        # Si le prochain mot est une année, un épisode (s01, 1x01) ou un tag technique -> OK
+        if re.match(r'^(19|20)\d{2}$', next_word): # Année
+            return True
+        if re.match(r'^[sx]\d+$', next_word): # S01, x01
+            return True
+        if re.match(r'^s\d+e\d+$', next_word): # S01E01
+            return True
+        if next_word in tech_tags:
+            return True
+            
+        # Si le prochain mot fait partie de l'AUTRE titre (ex: "Narcos" vs "Narcos Mexico")
+        # Si on cherche "Narcos" (FR) et que EN est "Narcos Mexico", et que le torrent a "Mexico" -> OK
+        # Mais ici on vérifie si next_word est dans norm_fr ou norm_en
+        if next_word in norm_fr.split() or next_word in norm_en.split():
+            return True
+            
+        # Si c'est un mot inconnu (ex: "Mexico" alors que la cible est juste "Narcos") -> Faux positif probable
+        return False
+
+    title_match = is_strict_match(norm_fr, norm_torrent) or is_strict_match(norm_en, norm_torrent)
             
     if not title_match:
         return False
-        
     if is_movie and year:
         try:
             y = int(year)
+            # Pour les films, l'année est cruciale pour éviter les remakes/suites
             if str(y) not in norm_torrent and str(y-1) not in norm_torrent and str(y+1) not in norm_torrent:
                 return False
         except ValueError:
@@ -69,47 +102,133 @@ def format_size(size_bytes):
     else:
         return f"{size / 1024:.2f} Ko"
 
+def is_video_file(filename):
+    """
+    Vérifie si le fichier/torrent semble être une vidéo.
+    On exclut les extensions non-vidéo connues (.iso, .pdf, .epub, .zip, etc.).
+    Pour les torrents, le nom n'a souvent pas d'extension, on l'accepte par défaut.
+    """
+    if not filename:
+        return False
+    
+    filename_lower = filename.lower()
+    
+    # Liste des extensions non-vidéo à exclure absolument
+    bad_extensions = (
+        '.iso', '.pdf', '.epub', '.txt', '.nfo', '.jpg', '.jpeg', '.png', 
+        '.rar', '.zip', '.7z', '.tar', '.gz', '.exe', '.doc', '.docx'
+    )
+    if filename_lower.endswith(bad_extensions):
+        return False
+        
+    # Liste des extensions vidéo connues (pour acceptation immédiate)
+    video_extensions = (
+        '.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', 
+        '.m4v', '.mpg', '.mpeg', '.ts', '.m2ts', '.vob', '.divx'
+    )
+    if filename_lower.endswith(video_extensions):
+        return True
+    
+    # Si le nom contient un point suivi de 2-4 caractères à la fin, 
+    # c'est probablement une extension inconnue (et potentiellement non-vidéo)
+    # Mais attention, beaucoup de torrents ont des points dans le nom (ex: Movie.Name.1080p)
+    # On ne filtre PAS si ça ressemble à un titre de torrent standard (sans extension de fichier à la fin)
+    
+    # Si le nom se termine par une extension (3-4 caractères après le dernier point)
+    # qui n'est pas dans notre liste de vidéos, on pourrait être suspicieux.
+    # Mais pour l'instant, on va rester permissif : on ne bloque que les "bad_extensions".
+    
+    return True
+
 def parse_torrent_name(name):
-    """Analyse le nom du torrent pour extraire qualité et langue"""
+    """Analyse le nom du torrent pour extraire qualité, langue, codec et type de release"""
+    if not name:
+        return {"name": "", "quality": "", "codec": "", "language": "", "release_type": ""}
+        
     name_upper = name.upper()
     
     # Qualité
     quality = ""
-    if "2160P" in name_upper or "4K" in name_upper:
+    if any(q in name_upper for q in ["2160P", "4K", "UHD"]):
         quality = "4K"
     elif "1080P" in name_upper:
         quality = "1080p"
     elif "720P" in name_upper:
         quality = "720p"
-    elif "480P" in name_upper or "SD" in name_upper:
+    elif any(q in name_upper for q in ["480P", "SD", "DVD"]):
         quality = "SD"
         
-    # Codec / HDR
+    # Codec
+    codec = ""
+    if any(c in name_upper for c in ["X265", "HEVC", "H265"]):
+        codec = "x265"
+    elif any(c in name_upper for c in ["X264", "AVC", "H264"]):
+        codec = "x264"
+    elif "AV1" in name_upper:
+        codec = "AV1"
+    
+    # HDR / Bitrate
     extras = []
     if "HDR" in name_upper: extras.append("HDR")
-    if "DV" in name_upper or "DOLBY VISION" in name_upper: extras.append("DV")
-    if "X265" in name_upper or "HEVC" in name_upper: extras.append("x265")
+    if any(dv in name_upper for dv in ["DV", "DOLBY VISION"]): extras.append("DV")
+    if "10BIT" in name_upper: extras.append("10bit")
     
+    # Release Type
+    release_type = ""
+    if "WEBRIP" in name_upper:
+        release_type = "WebRIP"
+    elif "WEB-DL" in name_upper or "WEBDL" in name_upper or "WEB" in name_upper:
+        release_type = "WEB-DL"
+    elif any(br in name_upper for br in ["BRRIP", "BDRIP", "BLURAY", "BDLIGHT"]):
+        release_type = "BDRip"
+    elif "DVDRIP" in name_upper:
+        release_type = "DVDRip"
+    elif "CAM" in name_upper or "TS" in name_upper:
+        release_type = "CAM"
+
     # Langues
-    langs = []
-    
-    # Priorité aux Multi et VFF
+    languages = []
     if "MULTI" in name_upper:
-        langs.append("🇫🇷+🇺🇸 MULTI")
-    elif "TRUEFRENCH" in name_upper or "VFF" in name_upper:
-        langs.append("🇫🇷 VFF")
+        languages.append("Multi")
+    if "VOSTFR" in name_upper:
+        languages.append("VOSTFR")
+    if "TRUEFRENCH" in name_upper or "VFF" in name_upper:
+        languages.append("VFF")
+    elif "VF2" in name_upper:
+        languages.append("VF2")
+    elif "VFQ" in name_upper:
+        languages.append("VFQ")
     elif "FRENCH" in name_upper or "VF" in name_upper:
-        langs.append("🇫🇷 VF")
-    elif "VOSTFR" in name_upper or "SUBFRENCH" in name_upper:
-        langs.append("🇫🇷🇯🇵 VOSTFR")
-        
-    # Formatage final
+        languages.append("VF")
+    
+    # Si rien de détecté mais original_title != title
+    if not languages and ("EN" in name_upper or "VO" in name_upper or "ENG" in name_upper):
+        languages.append("VO")
+    
+    # Formatage de l'affichage classique (title)
+    display_langs = []
+    for lang in languages:
+        if lang == "Multi": display_langs.append("🇫🇷+🇺🇸 MULTI")
+        elif lang == "VFF": display_langs.append("🇫🇷 VFF")
+        elif lang == "VF": display_langs.append("🇫🇷 VF")
+        elif lang == "VFQ": display_langs.append("🇨🇦 VFQ")
+        elif lang == "VOSTFR": display_langs.append("🇫🇷🇯🇵 VOSTFR")
+        elif lang == "VO": display_langs.append("🇺🇸 VO")
+
     title_parts = []
     if quality: title_parts.append(f"📺 {quality}")
-    if extras: title_parts.append(f"🎞️ {' '.join(extras)}")
-    if langs: title_parts.append(f"{' '.join(langs)}")
+    if release_type: title_parts.append(f"📦 {release_type}")
+    if codec: title_parts.append(f"🎞️ {codec}")
+    if extras: title_parts.append(f"✨ {' '.join(extras)}")
+    if display_langs: title_parts.append(f"{' '.join(display_langs)}")
     
-    return " | ".join(title_parts)
+    return {
+        "name": " | ".join(title_parts),
+        "quality": quality,
+        "codec": codec,
+        "language": ", ".join(languages) if languages else "Français",
+        "release_type": release_type
+    }
 
 def check_season_episode(name, target_season, target_episode):
     """

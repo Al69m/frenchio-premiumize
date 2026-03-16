@@ -376,8 +376,8 @@ class TorBoxService:
     
     def _is_video_file(self, filename):
         """Vérifie si un fichier est une vidéo."""
-        video_extensions = {'.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts'}
-        excluded_extensions = {'.nfo', '.txt', '.srt', '.sub', '.idx', '.jpg', '.png', '.gif'}
+        video_extensions = {'.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts', '.vob'}
+        excluded_extensions = {'.nfo', '.txt', '.srt', '.sub', '.idx', '.jpg', '.png', '.gif', '.iso', '.pdf', '.epub', '.zip', '.rar'}
         
         filename_lower = filename.lower()
         

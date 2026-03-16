@@ -393,12 +393,25 @@ class AllDebridService:
             
             logging.warning(f"No strict match found for S{season}E{episode}. Files available: {[l.get('filename') for l in links[:5]]}...")
 
-        # Si Film ou pas trouvé, on prend le plus gros fichier
-        # Tri par taille décroissante
-        sorted_links = sorted(links, key=lambda x: x.get('size', 0), reverse=True)
+        # Filtrage par extension (Vidéos uniquement)
+        video_extensions = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts', '.vob')
+        bad_extensions = ('.iso', '.pdf', '.epub', '.txt', '.nfo', '.jpg', '.jpeg', '.png', '.rar', '.zip')
+        
+        video_links = [l for l in links if any(l.get('filename', '').lower().endswith(ext) for ext in video_extensions)]
+        
+        # Si aucun lien avec extension vidéo, on exclut au moins les extensions interdites
+        if not video_links:
+            video_links = [l for l in l if not any(l.get('filename', '').lower().endswith(ext) for ext in bad_extensions)]
+
+        if not video_links:
+            logging.error(f"❌ AD _select_link: No video files found in torrent")
+            return None
+
+        # Si Film ou pas trouvé par pattern, on prend le plus gros fichier parmi les vidéos
+        sorted_links = sorted(video_links, key=lambda x: x.get('size', 0), reverse=True)
         best_link = sorted_links[0]
         
-        logging.info(f"Fallback: Selected largest file: {best_link.get('filename')} ({best_link.get('size')} bytes)")
+        logging.info(f"Fallback/Movie: Selected largest video: {best_link.get('filename')} ({best_link.get('size')} bytes)")
         return best_link['link']
 
     async def _unlock_link(self, session, link):

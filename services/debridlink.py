@@ -190,14 +190,20 @@ class DebridLinkService:
                                 selected_file = f
                                 break
                         
-                        # Fallback : prendre le plus gros fichier vidéo
-                        if not selected_file:
-                            video_files = [f for f in files if f.get('name', '').lower().endswith(('.mkv', '.mp4', '.avi'))]
-                            if video_files:
-                                selected_file = max(video_files, key=lambda x: x.get('size', 0))
                     else:
-                        # Film : prendre le plus gros fichier
-                        selected_file = max(files, key=lambda x: x.get('size', 0))
+                        # Film : prendre le plus gros fichier vidéo
+                        video_extensions = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts')
+                        video_files = [f for f in files if f.get('name', '').lower().endswith(video_extensions)]
+                        
+                        if video_files:
+                            selected_file = max(video_files, key=lambda x: x.get('size', 0))
+                        else:
+                            # Fallback si pas d'extension trouvée (nom sans extension ?)
+                            # On exclut au moins les fichiers connus pour ne pas être des vidéos
+                            bad_extensions = ('.iso', '.pdf', '.epub', '.txt', '.nfo', '.rar', '.zip')
+                            filtered_files = [f for f in files if not f.get('name', '').lower().endswith(bad_extensions)]
+                            if filtered_files:
+                                selected_file = max(filtered_files, key=lambda x: x.get('size', 0))
                     
                     if selected_file:
                         download_url = selected_file.get('downloadUrl')
